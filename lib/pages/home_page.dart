@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:birdify/main.dart';
+import 'package:birdify/models/observation.dart';
+import 'package:birdify/pages/settings_page.dart';
 import 'package:birdify/repos/gemini_service.dart';
+import 'package:birdify/repos/observations_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,7 +37,10 @@ class _HomePageState extends State<HomePage> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => _ResultSheet(result: result),
+        builder: (_) => _ResultSheet(
+          result: result,
+          imagePath: _image?.path,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -84,6 +90,27 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Settings',
+            style: IconButton.styleFrom(
+              backgroundColor: cs.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: Icon(
+              Icons.settings_outlined,
+              size: 18,
+              color: cs.onSurface,
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsPage(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: IconButton(
@@ -390,14 +417,54 @@ class _Actions extends StatelessWidget {
 
 // ── Result Bottom Sheet ───────────────────────────────────────────────────────
 
-class _ResultSheet extends StatelessWidget {
-  const _ResultSheet({required this.result});
+class _ResultSheet extends StatefulWidget {
+  const _ResultSheet({required this.result, this.imagePath});
 
   final BirdResult result;
+  final String? imagePath;
+
+  @override
+  State<_ResultSheet> createState() => _ResultSheetState();
+}
+
+class _ResultSheetState extends State<_ResultSheet> {
+  bool _saved = false;
+
+  void _saveObservation() {
+    if (_saved || widget.result.notBird) return;
+    ObservationsService.add(
+      Observation(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        birdName: widget.result.commonName,
+        scientificName: widget.result.scientificName,
+        description: widget.result.description,
+        habitat: widget.result.habitat,
+        conservationStatus: widget.result.conservationStatus,
+        date: DateTime.now(),
+        imagePath: widget.imagePath,
+      ),
+    );
+    setState(() => _saved = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text('${widget.result.commonName} saved to Observations'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final result = widget.result;
 
     return Container(
       constraints: BoxConstraints(
@@ -518,6 +585,40 @@ class _ResultSheet extends StatelessWidget {
                     content: result.funFact,
                     cs: cs,
                     accent: true,
+                  ),
+                ]),
+                if (!result.notBird) ...([
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: _saved ? null : _saveObservation,
+                      icon: Icon(
+                        _saved
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.bookmark_add_outlined,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _saved ? 'Saved to Observations' : 'Save Observation',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _saved
+                            ? cs.surfaceContainerHighest
+                            : cs.primary,
+                        foregroundColor: _saved
+                            ? cs.onSurface.withValues(alpha: 0.45)
+                            : cs.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
                   ),
                 ]),
               ],
