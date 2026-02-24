@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Birdify needs your microphone so you can ask bird questions by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Birdify uses speech recognition to convert your voice into bird questions.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>We need camera to identify birds</string>
 	<key>NSPhotoLibraryUsageDescription</key>

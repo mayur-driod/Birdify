@@ -48,10 +48,17 @@ class BirdResult {
   }
 }
 
-/// Thin wrapper around the Gemini Vision API for bird identification.
+/// Thin wrapper around the Gemini Vision API for bird identification and chat.
 class GeminiService {
   static const _endpoint =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+  static const _chatSystemPrompt =
+      'You are an expert ornithologist and friendly bird-watching guide named "Birdy". '
+      'Help users identify, learn about, and appreciate birds. '
+      'Answer questions about bird species, habitats, behaviours, migration, conservation, '
+      'and birdwatching tips. Be warm, concise, and accurate. '
+      'Keep responses to 2–3 short paragraphs unless more detail is specifically requested.';
 
   static const _prompt =
       'You are a bird identification expert. Analyze the image.\n\n'
@@ -129,6 +136,58 @@ class GeminiService {
 
     final json = jsonDecode(cleaned) as Map<String, dynamic>;
     return BirdResult.fromJson(json);
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+
+  /// Send a user [message] to the Gemini chat model along with [history].
+  ///
+  /// [history] entries must have keys `"role"` (`"user"` | `"model"`) and
+  /// `"text"`.  Returns the model's plain-text reply.
+  static Future<String> chatAboutBirds(
+    String message,
+    List<Map<String, String>> history,
+  ) async {
+    final contents = <Map<String, dynamic>>[
+      for (final msg in history)
+        {
+          'role': msg['role']!,
+          'parts': [
+            {'text': msg['text']!},
+          ],
+        },
+      {
+        'role': 'user',
+        'parts': [
+          {'text': message},
+        ],
+      },
+    ];
+
+    final response = await http
+        .post(
+          Uri.parse('$_endpoint?key=$_key'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'system_instruction': {
+              'parts': [
+                {'text': _chatSystemPrompt},
+              ],
+            },
+            'contents': contents,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Gemini API error (${response.statusCode}):\n${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['candidates'][0]['content']['parts'][0]['text'] as String)
+        .trim();
   }
 }
 
